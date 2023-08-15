@@ -1,7 +1,9 @@
 from flask_blog.models import User, Post
 from flask_blog.forms import RegistrationForm, LoginForm
-from flask import render_template, flash, redirect, url_for
+from flask import render_template, flash, redirect, url_for, request
 from flask_blog import app, db, bcrypt
+from flask_login import login_user, current_user, logout_user, login_required
+
 posts = [
     {
         "author": "M Behroz",
@@ -44,14 +46,31 @@ def register():
     return render_template('registration.html', title='Sign up', form=form)
 
 
-@app.route('/login')
+@app.route('/login', methods=['GET', 'POST'])
 def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
     form = LoginForm()
+    if form.validate_on_submit():
+        password = form.password.data
+        user = User.query.filter_by(email = form.email.data).first()
+        if user and bcrypt.check_password_hash(user.password, password):
+            login_user(user, remember=form.remember.data)
+            next_page = request.args.get('next')
+            return redirect(next_page) if next_page else redirect(url_for('home'))
+            return redirect(url_for('home'))
+        else:
+            flash("login unsucessful ", 'danger')
     return render_template('login.html', title='login', form=form)
 
-#
-# @app.route('/account')
-#     @login_required
-# def account():
-#     image_file = url_for('static', filename='image/'+current_user.image_file)
-#     return render_template('account.html')
+
+@app.route('/logout')
+def logout():
+    logout_user()
+    return redirect(url_for('home'))
+
+@app.route('/account')
+@login_required
+def account():
+    image_file = url_for('static', filename='image/'+current_user.image_file)
+    return render_template('account.html')
